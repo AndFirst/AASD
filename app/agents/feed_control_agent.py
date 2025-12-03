@@ -16,8 +16,8 @@ class FeedControlAgent(Agent):
 
 
 async def main():
-    agent = FeedControlAgent("feedcontrol@localhost", "password")  # JID + hasło z prosody
-    await agent.start(auto_register=True)
+    agent = FeedControlAgent("feedcontrol@localhost", "password", verify_security=False)  # JID + hasło z prosody
+    await agent.start(auto_register=False)
     print("FeedControlAgent jest online. CTRL+C aby zakończyć.")
 
     try:

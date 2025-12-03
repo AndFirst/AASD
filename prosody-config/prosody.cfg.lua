@@ -12,15 +12,11 @@ modules_enabled = {
     "register";
 }
 
-modules_disabled = {
-}
-
 allow_registration = true
 
-c2s_require_encryption = false
-s2s_require_encryption = false
+c2s_require_encryption = true
 
-authentication = "internal_plain"
+authentication = "internal_hashed"
 
 log = {
     info = "/var/log/prosody/prosody.log";
@@ -28,3 +24,7 @@ log = {
 }
 
 VirtualHost "localhost"
+ssl = {
+    key = "/var/lib/prosody/localhost.key";
+    certificate = "/var/lib/prosody/localhost.crt";
+}
