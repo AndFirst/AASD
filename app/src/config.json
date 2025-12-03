@@ -1,0 +1,41 @@
+{
+    "container_name": "ejabberd",
+    "host": "localhost",
+    "agents": [
+        {
+            "class_": "ChickenAgent",
+            "jid": "chicken_0",
+            "password": "chicken_0"
+        },
+        {
+            "class_": "ChickenAgent",
+            "jid": "chicken_1",
+            "password": "chicken_1"
+        },
+        {
+            "class_": "ChickenAgent",
+            "jid": "chicken_2",
+            "password": "chicken_2"
+        },
+        {
+            "class_": "EnvMonitoringAgent",
+            "jid": "env_monitoring",
+            "password": "env_monitoring"
+        },
+        {
+            "class_": "FeederAgent",
+            "jid": "feeder",
+            "password": "feeder"
+        },
+        {
+            "class_": "ManagerAgent",
+            "jid": "manager",
+            "password": "manager"
+        },
+        {
+            "class_": "StorageAgent",
+            "jid": "storage",
+            "password": "storage"
+        }
+    ]
+}

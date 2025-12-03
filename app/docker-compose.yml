@@ -1,0 +1,54 @@
+version: "3.9"
+
+services:
+  aasd_xmpp:
+    container_name: ejabberd
+    image: ejabberd/ecs
+    restart: unless-stopped
+    ports:
+      - "5222:5222"   # XMPP client port
+      - "5280:5280"   # Web admin interface
+    networks:
+      - aasd_network
+
+  aasd_app:
+    container_name: aasd_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - aasd_xmpp
+      - postgres
+    environment:
+      - XMPP_HOST=localhost
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=aasd
+    networks:
+      - aasd_network
+    volumes:
+      - .:/app
+    command: [ "uv", "run", "src/main.py" ]
+
+  postgres:
+    container_name: aasd_postgres
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=aasd
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - aasd_network
+
+networks:
+  aasd_network:
+
+volumes:
+  postgres_data:

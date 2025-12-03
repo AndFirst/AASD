@@ -1,0 +1,12 @@
+[project]
+name = "aasd"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.12.3",
+    "requests>=2.32.5",
+    "spade>=4.0.3",
+    "sqlalchemy>=2.0.44",
+]
