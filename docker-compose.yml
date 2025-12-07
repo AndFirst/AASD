@@ -1,0 +1,8 @@
+services:
+  xmpp:
+    image: prosody/prosody:latest
+    container_name: xmpp_server
+    ports:
+      - "5222:5222"
+    volumes:
+      - ./prosody-config:/etc/prosody
