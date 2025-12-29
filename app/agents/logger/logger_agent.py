@@ -1,33 +1,23 @@
-from pathlib import Path
-
 from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour
 
+from agents.logger.logger_agent_behaviour import ReceiveBehaviour
 from repositories.event_repository import EventRepository
 from utils.config_loader import load_config
-from utils.messaging import parse_content
 
 
 class LoggerAgent(Agent):
-    class ReceiveBehaviour(CyclicBehaviour):
-        async def run(self):
-            msg = await self.receive(timeout=10)
-            if not msg:
-                return
-
-            data = parse_content(msg)
-            event_type = data.get("event_type") or msg.get_metadata("conversation") or "unknown"
-            payload = data.get("payload", data)
-
-            self.agent.repo.log(event_type, payload)
-            print(f"[LOGGER] {event_type}: {payload}")
+    def __init__(
+            self, jid: str, password: str, port: int = 5222, verify_security: bool = False
+    ):
+        super().__init__(jid, password, port, verify_security)
+        self.repo = None
 
     async def setup(self):
         print("[LOGGER] Agent uruchomiony.")
         cfg = load_config()
         events_file = cfg["logging"]["events_file"]
         self.repo = EventRepository(events_file)
-        self.add_behaviour(self.ReceiveBehaviour())
+        self.add_behaviour(ReceiveBehaviour())
 
 
 async def main():

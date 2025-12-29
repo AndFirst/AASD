@@ -1,4 +1,5 @@
 import json
+
 from spade.message import Message
 
 
@@ -9,7 +10,7 @@ def build_message(
     content: dict,
 ) -> Message:
     msg = Message(to=to)
-    msg.set_metadata("performative", performative)  # FIPA ACL
+    msg.set_metadata("performative", performative)
     if conversation:
         msg.set_metadata("conversation", conversation)
     msg.set_metadata("language", "json")

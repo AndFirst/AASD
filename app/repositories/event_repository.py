@@ -1,6 +1,6 @@
-from pathlib import Path
-from datetime import datetime
 import json
+from datetime import datetime
+from pathlib import Path
 
 
 class EventRepository:
@@ -10,7 +10,7 @@ class EventRepository:
 
     def log(self, event_type: str, payload: dict) -> None:
         entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now().isoformat(),
             "type": event_type,
             "payload": payload,
         }
