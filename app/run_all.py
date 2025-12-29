@@ -1,12 +1,12 @@
 import asyncio
 
+from agents.behavior_and_alarm.behavior_and_alarm_agent import BehaviorAndAlarmAgent
+from agents.feed_control.agent import FeedControlAgent
+from agents.hen_simulator.agent import HenSimulatorAgent
+from agents.lighting.lighting_agent import LightingAgent
+from agents.logger.logger_agent import LoggerAgent
+from agents.ui.ui_agent import UIAgent
 from utils.config_loader import load_config, get_agent_credentials
-from agents.behavior_and_alarm_agent import BehaviorAndAlarmAgent
-from agents.feed_control_agent import FeedControlAgent
-from agents.hen_simulator_agent import HenSimulatorAgent
-from agents.lighting_agent import LightingAgent
-from agents.logger_agent import LoggerAgent
-from agents.ui_agent import UIAgent
 
 
 async def main():

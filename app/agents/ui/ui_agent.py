@@ -1,23 +1,12 @@
 from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour
 
-from utils.messaging import parse_content
+from agents.ui.ui_agent_behaviour import ReceiveBehaviour
 
 
 class UIAgent(Agent):
-    class ReceiveBehaviour(CyclicBehaviour):
-        async def run(self):
-            msg = await self.receive(timeout=10)
-            if not msg:
-                return
-
-            data = parse_content(msg)
-            sender = str(msg.sender)
-            print(f"[UI] Aktualizacja od {sender}: {data}")
-
     async def setup(self):
         print("[UI] Agent uruchomiony.")
-        self.add_behaviour(self.ReceiveBehaviour())
+        self.add_behaviour(ReceiveBehaviour())
 
 
 async def main():
