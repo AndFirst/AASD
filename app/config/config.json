@@ -1,64 +1,103 @@
 {
-    "xmpp": {
-        "verify_security": false
+  "xmpp": {
+    "host": "localhost",
+    "port": 5222,
+    "verify_security": false
+  },
+
+  "agents": {
+    "feed_control": {
+      "jid": "feedcontrol@localhost",
+      "password": "qwerty"
     },
-    "agents": {
-        "feed_control": {
-            "jid": "feedcontrol@localhost",
-            "password": "qwerty"
-        },
-        "hen_simulator1": {
-            "jid": "simulator1@localhost",
-            "password": "qwerty"
-        },
-        "hen_simulator2": {
-            "jid": "simulator2@localhost",
-            "password": "qwerty"
-        },
-        "hen_simulator3": {
-            "jid": "simulator3@localhost",
-            "password": "qwerty"
-        },
-        "hen_simulator4": {
-            "jid": "simulator4@localhost",
-            "password": "qwerty"
-        },
-        "hen_simulator5": {
-            "jid": "simulator5@localhost",
-            "password": "qwerty"
-        },
-        "behavior_alarm": {
-            "jid": "behavior@localhost",
-            "password": "qwerty"
-        },
-        "lighting": {
-            "jid": "lighting@localhost",
-            "password": "qwerty"
-        },
-        "logger": {
-            "jid": "logger@localhost",
-            "password": "qwerty"
-        },
-        "ui": {
-            "jid": "ui@localhost",
-            "password": "qwerty"
-        }
-    },
-    "feeding": {
-        "initial_feed_level": 100,
-        "silo_capacity": 200,
-        "portion_size": 10,
-        "hunger_threshold": 70,
-        "low_feed_threshold": 20
+    "behavior_alarm": {
+      "jid": "behavior@localhost",
+      "password": "qwerty"
     },
     "lighting": {
-        "normal_level": 100,
-        "calm_level": 40
+      "jid": "lighting@localhost",
+      "password": "qwerty"
     },
-    "logging": {
-        "events_file": "logs/events.log"
+    "logger": {
+      "jid": "logger@localhost",
+      "password": "qwerty"
     },
-    "behavior": {
-        "aggression_threshold": 7
+    "ui": {
+      "jid": "ui@localhost",
+      "password": "qwerty"
+    },
+
+    "hen_simulator": {
+      "jid": "simulator1@localhost",
+      "password": "qwerty"
+    },
+
+    "hen_simulator1": {
+      "jid": "simulator1@localhost",
+      "password": "qwerty"
+    },
+    "hen_simulator2": {
+      "jid": "simulator2@localhost",
+      "password": "qwerty"
+    },
+    "hen_simulator3": {
+      "jid": "simulator3@localhost",
+      "password": "qwerty"
+    },
+    "hen_simulator4": {
+      "jid": "simulator4@localhost",
+      "password": "qwerty"
+    },
+    "hen_simulator5": {
+      "jid": "simulator5@localhost",
+      "password": "qwerty"
     }
+  },
+
+  "hen_simulator": {
+    "count": 5,
+
+    "initial_light_level": 50,
+    "neutral_light_level": 50,
+    "light_sensitivity": 10,
+    "max_light_effect_per_tick": 2
+  },
+
+  "feeding": {
+    "initial_feed_level": 500,
+    "silo_capacity": 1000,
+    "portion_size": 30,
+    "hunger_threshold": 70,
+    "low_feed_threshold": 100,
+
+    "feed_cooldown_s": 8,
+    "max_hens_per_batch": 3
+  },
+
+  "behavior": {
+    "aggression_threshold": 5,
+    "aggression_target_min": -3,
+    "aggression_target_max": 3
+  },
+
+  "lighting": {
+    "initial_level": 50,
+    "min_level": 0,
+    "max_level": 100,
+    "step": 5,
+
+    "target_aggr_min": -3,
+    "target_aggr_max": 3
+  },
+
+  "lighting_control": {
+    "base_light_level": 50,
+    "light_step_per_aggression": 3,
+    "min_light_level": 0,
+    "max_light_level": 100
+  },
+
+  "logging": {
+    "events_file": "logs/events.jsonl"
+  }
 }

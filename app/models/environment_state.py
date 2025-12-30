@@ -10,4 +10,3 @@ class FeedState:
 @dataclass
 class LightingState:
     level: int
-    mode: str  # "normal" / "calm"
