@@ -20,7 +20,11 @@ async def main():
         ("behavior_alarm", BehaviorAndAlarmAgent),
         ("lighting", LightingAgent),
         ("feed_control", FeedControlAgent),
-        ("hen_simulator", HenSimulatorAgent),
+        ("hen_simulator1", HenSimulatorAgent),
+        ("hen_simulator2", HenSimulatorAgent),
+        ("hen_simulator3", HenSimulatorAgent),
+        ("hen_simulator4", HenSimulatorAgent),
+        ("hen_simulator5", HenSimulatorAgent),
     ]:
         jid, password = get_agent_credentials(key, cfg)
         a = cls(jid, password, verify_security=cfg["xmpp"]["verify_security"])

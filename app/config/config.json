@@ -1,48 +1,64 @@
 {
-  "xmpp": {
-    "verify_security": false
-  },
-  "agents": {
-    "feed_control": {
-      "jid": "feedcontrol@localhost",
-      "password": "qwerty"
+    "xmpp": {
+        "verify_security": false
     },
-    "hen_simulator": {
-      "jid": "simulator@localhost",
-      "password": "qwerty"
+    "agents": {
+        "feed_control": {
+            "jid": "feedcontrol@localhost",
+            "password": "qwerty"
+        },
+        "hen_simulator1": {
+            "jid": "simulator1@localhost",
+            "password": "qwerty"
+        },
+        "hen_simulator2": {
+            "jid": "simulator2@localhost",
+            "password": "qwerty"
+        },
+        "hen_simulator3": {
+            "jid": "simulator3@localhost",
+            "password": "qwerty"
+        },
+        "hen_simulator4": {
+            "jid": "simulator4@localhost",
+            "password": "qwerty"
+        },
+        "hen_simulator5": {
+            "jid": "simulator5@localhost",
+            "password": "qwerty"
+        },
+        "behavior_alarm": {
+            "jid": "behavior@localhost",
+            "password": "qwerty"
+        },
+        "lighting": {
+            "jid": "lighting@localhost",
+            "password": "qwerty"
+        },
+        "logger": {
+            "jid": "logger@localhost",
+            "password": "qwerty"
+        },
+        "ui": {
+            "jid": "ui@localhost",
+            "password": "qwerty"
+        }
     },
-    "behavior_alarm": {
-      "jid": "behavior@localhost",
-      "password": "qwerty"
+    "feeding": {
+        "initial_feed_level": 100,
+        "silo_capacity": 200,
+        "portion_size": 10,
+        "hunger_threshold": 70,
+        "low_feed_threshold": 20
     },
     "lighting": {
-      "jid": "lighting@localhost",
-      "password": "qwerty"
+        "normal_level": 100,
+        "calm_level": 40
     },
-    "logger": {
-      "jid": "logger@localhost",
-      "password": "qwerty"
+    "logging": {
+        "events_file": "logs/events.log"
     },
-    "ui": {
-      "jid": "ui@localhost",
-      "password": "qwerty"
+    "behavior": {
+        "aggression_threshold": 7
     }
-  },
-  "feeding": {
-    "initial_feed_level": 100,
-    "silo_capacity": 200,
-    "portion_size": 10,
-    "hunger_threshold": 70,
-    "low_feed_threshold": 20
-  },
-  "lighting": {
-    "normal_level": 100,
-    "calm_level": 40
-  },
-  "logging": {
-    "events_file": "logs/events.log"
-  },
-  "behavior": {
-    "aggression_threshold": 7
-  }
 }
