@@ -1,7 +1,9 @@
 import time
+
 from spade.behaviour import CyclicBehaviour
-from utils.messaging import parse_content, build_message
+
 from utils.config_loader import load_config
+from utils.messaging import parse_content, build_message
 
 
 def _clamp(v: int, lo: int, hi: int) -> int:
@@ -10,23 +12,23 @@ def _clamp(v: int, lo: int, hi: int) -> int:
 
 class LightningBehaviour(CyclicBehaviour):
     async def on_start(self):
-        """
-        Init: wyślij stan początkowy światła dla KAŻDEJ kury osobno.
-        Ważne:
-        - używamy self.send (Behaviour ma send)
-        - source = str(self.agent.jid) (NIE self.jid)
-        """
         cfg = load_config()
-        n = int((cfg.get("hen_simulator", {}) or {}).get("count", getattr(self.agent, "hen_count", 5)))
-
-        # upewnij się że agent ma mapę (gdyby config/agent się rozjechał)
-        if not hasattr(self.agent, "hen_light_levels") or not isinstance(self.agent.hen_light_levels, dict):
+        n = int(
+            (cfg.get("hen_simulator", {}) or {}).get(
+                "count", getattr(self.agent, "hen_count", 5)
+            )
+        )
+        if not hasattr(self.agent, "hen_light_levels") or not isinstance(
+            self.agent.hen_light_levels, dict
+        ):
             self.agent.hen_light_levels = {}
 
         for i in range(1, n + 1):
             hen_id = f"simulator{i}@localhost"
             if hen_id not in self.agent.hen_light_levels:
-                self.agent.hen_light_levels[hen_id] = int(getattr(self.agent, "neutral_level", 50))
+                self.agent.hen_light_levels[hen_id] = int(
+                    getattr(self.agent, "neutral_level", 50)
+                )
 
             await self._broadcast_light_update(reason="init", hen_id=hen_id)
 
@@ -42,24 +44,15 @@ class LightningBehaviour(CyclicBehaviour):
         msg_type = content.get("type")
         payload = content.get("payload", {}) or content
 
-        # manual set (np z UI/CLI)
         if msg_type in {"set_light", "set_light_level"}:
             await self._handle_manual_set(payload)
             return
 
-        # auto regulation (z BehaviorAndAlarm)
         if msg_type in {"aggression_update", "regulate_from_aggression"}:
             await self._handle_aggression_update(payload)
             return
 
-    # ---------- regulator helpers ----------
-
     def _compute_target_level(self, aggression: int) -> int:
-        """
-        Setpoint:
-          - jeśli aggression w [-3..3] => wracamy do neutral
-          - w przeciwnym razie: target = neutral + gain * aggression
-        """
         neutral = int(getattr(self.agent, "neutral_level", 50))
         lo = int(getattr(self.agent, "min_level", 0))
         hi = int(getattr(self.agent, "max_level", 100))
@@ -75,11 +68,6 @@ class LightningBehaviour(CyclicBehaviour):
         return _clamp(target, lo, hi)
 
     def _allow_send(self, hen_id: str, new_level: int) -> bool:
-        """
-        Antyspam:
-          - rate limit
-          - min delta
-        """
         if not hen_id:
             return False
 
@@ -89,7 +77,11 @@ class LightningBehaviour(CyclicBehaviour):
         if now - last_t < min_int:
             return False
 
-        cur = int((getattr(self.agent, "hen_light_levels", {}) or {}).get(hen_id, getattr(self.agent, "neutral_level", 50)))
+        cur = int(
+            (getattr(self.agent, "hen_light_levels", {}) or {}).get(
+                hen_id, getattr(self.agent, "neutral_level", 50)
+            )
+        )
         min_delta = int(getattr(self.agent, "min_delta_to_send", 2))
         if abs(int(new_level) - cur) < min_delta:
             return False
@@ -105,19 +97,19 @@ class LightningBehaviour(CyclicBehaviour):
         if not self._allow_send(hen_id, new_level):
             return
 
-        # update map
         self.agent.hen_light_levels[hen_id] = new_level
 
-        # runtime trackers
-        if not hasattr(self.agent, "_last_set_at") or not isinstance(self.agent._last_set_at, dict):
+        if not hasattr(self.agent, "_last_set_at") or not isinstance(
+            self.agent._last_set_at, dict
+        ):
             self.agent._last_set_at = {}
-        if not hasattr(self.agent, "_last_sent_level") or not isinstance(self.agent._last_sent_level, dict):
+        if not hasattr(self.agent, "_last_sent_level") or not isinstance(
+            self.agent._last_sent_level, dict
+        ):
             self.agent._last_sent_level = {}
 
         self.agent._last_set_at[hen_id] = time.monotonic()
         await self._broadcast_light_update(reason=reason, hen_id=hen_id)
-
-    # ---------- handlers ----------
 
     async def _handle_manual_set(self, payload: dict):
         hen_id = payload.get("hen_id")
@@ -125,7 +117,12 @@ class LightningBehaviour(CyclicBehaviour):
             return
 
         try:
-            level = int(payload.get("level", self.agent.hen_light_levels.get(hen_id, self.agent.neutral_level)))
+            level = int(
+                payload.get(
+                    "level",
+                    self.agent.hen_light_levels.get(hen_id, self.agent.neutral_level),
+                )
+            )
         except Exception:
             return
 
@@ -145,25 +142,24 @@ class LightningBehaviour(CyclicBehaviour):
         target = self._compute_target_level(aggression)
 
         cur = int(self.agent.hen_light_levels.get(hen_id, self.agent.neutral_level))
-        # mały debug żebyś widział, że wraca do neutral
-        print(f"[LIGHT] SETPOINT hen={hen_id} aggr={aggression} cur={cur} -> target={target}")
+        print(
+            f"[LIGHT] SETPOINT hen={hen_id} aggr={aggression} cur={cur} -> target={target}"
+        )
 
-        await self._set_level_for_hen(hen_id=hen_id, new_level=target, reason="regulate_to_target")
-
-    # ---------- broadcasting ----------
+        await self._set_level_for_hen(
+            hen_id=hen_id, new_level=target, reason="regulate_to_target"
+        )
 
     async def _broadcast_light_update(self, reason: str, hen_id: str):
-        """
-        1) UI: update_state / light_state_update
-        2) Logger: logging / log_event (event=light_change)
-        3) Hen: conversation="lighting" / light_level_update (tylko do tej kury)
-        """
         if not hen_id:
             return
 
-        level = int(self.agent.hen_light_levels.get(hen_id, getattr(self.agent, "neutral_level", 50)))
+        level = int(
+            self.agent.hen_light_levels.get(
+                hen_id, getattr(self.agent, "neutral_level", 50)
+            )
+        )
 
-        # --- UI ---
         msg_ui = build_message(
             to=self.agent.ui_jid,
             performative="inform",
@@ -176,7 +172,6 @@ class LightningBehaviour(CyclicBehaviour):
         )
         await self.send(msg_ui)
 
-        # --- Logger ---
         msg_log = build_message(
             to=self.agent.logger_jid,
             performative="inform",
@@ -184,12 +179,16 @@ class LightningBehaviour(CyclicBehaviour):
             content={
                 "type": "log_event",
                 "source": str(self.agent.jid),
-                "payload": {"event": "light_change", "level": level, "reason": reason, "hen_id": hen_id},
+                "payload": {
+                    "event": "light_change",
+                    "level": level,
+                    "reason": reason,
+                    "hen_id": hen_id,
+                },
             },
         )
         await self.send(msg_log)
 
-        # --- Hen (per-hen, pewne działanie bez listy w configu) ---
         msg_hen = build_message(
             to=hen_id,
             performative="inform",
@@ -202,7 +201,8 @@ class LightningBehaviour(CyclicBehaviour):
         )
         await self.send(msg_hen)
 
-        # dedup tracking (per-hen)
-        if not hasattr(self.agent, "_last_sent_level") or not isinstance(self.agent._last_sent_level, dict):
+        if not hasattr(self.agent, "_last_sent_level") or not isinstance(
+            self.agent._last_sent_level, dict
+        ):
             self.agent._last_sent_level = {}
         self.agent._last_sent_level[hen_id] = level

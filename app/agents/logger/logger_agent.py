@@ -19,5 +19,4 @@ class LoggerAgent(Agent):
         events_file = cfg["logging"]["events_file"]
         self.repo = EventRepository(events_file)
 
-        # Behawiory dodajemy dopiero po inicjalizacji repo
         self.add_behaviour(ReceiveBehaviour())

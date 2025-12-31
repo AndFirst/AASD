@@ -11,10 +11,6 @@ def _clamp(value: int, low: int, high: int) -> int:
 
 
 def _safe_parse_body(body: str):
-    """
-    build_message prawdopodobnie serializuje dict do JSON w body.
-    Żeby było odporne, próbujemy JSON, a jak się nie da, zwracamy None.
-    """
     if body is None:
         return None
     if isinstance(body, dict):
@@ -33,17 +29,6 @@ def _safe_parse_body(body: str):
 
 
 class ReceiveFeedingBehaviour(CyclicBehaviour):
-    """
-    Odbiera informację o karmieniu i zmniejsza hunger.
-    Zakładamy komunikat:
-      performative="inform"
-      conversation="feeding"
-      content={
-          "type": "feed_dispensed",
-          "hen_id": "<jid>" | None (None = broadcast)
-          "amount": <int>
-      }
-    """
     async def run(self):
         msg = await self.receive(timeout=1)
         if not msg:
@@ -76,23 +61,12 @@ class ReceiveFeedingBehaviour(CyclicBehaviour):
         new_hunger = max(0, prev - amount)
         self.agent.state.hunger = new_hunger
 
-        print(f"[SIM:{self.agent.hen_id}] Nakarmiona: -{amount} hunger ({prev} -> {new_hunger})")
+        print(
+            f"[SIM:{self.agent.hen_id}] Nakarmiona: -{amount} hunger ({prev} -> {new_hunger})"
+        )
 
 
 class ReceiveLightingBehaviour(CyclicBehaviour):
-    """
-    Symulator odbiera aktualny poziom światła, żeby wpływał na aggression.
-
-    Format (uzgodniony):
-      conversation="lighting"
-      content={
-        "type": "light_level_update" | "light_state_update",
-        "payload": {"level": <int>, "reason": "...", "hen_id": "...optional..."}
-      }
-
-    Jeśli payload.hen_id jest podane, to wiadomość jest per-hen.
-    Jeśli nie ma hen_id, traktujemy jako globalną.
-    """
     async def run(self):
         msg = await self.receive(timeout=1)
         if not msg:
@@ -113,7 +87,6 @@ class ReceiveLightingBehaviour(CyclicBehaviour):
         payload = data.get("payload", {}) or {}
         target_hen = payload.get("hen_id")
 
-        # jeśli hen_id jest wskazane i nie pasuje -> ignoruj
         if target_hen and target_hen != self.agent.hen_id:
             return
 
@@ -128,37 +101,24 @@ class ReceiveLightingBehaviour(CyclicBehaviour):
 
         if prev != level:
             reason = payload.get("reason", "unknown")
-            print(f"[SIM:{self.agent.hen_id}] Światło: level {prev} -> {level} (reason={reason})")
+            print(
+                f"[SIM:{self.agent.hen_id}] Światło: level {prev} -> {level} (reason={reason})"
+            )
 
 
 class SimulateBehaviour(PeriodicBehaviour):
     def _compute_light_effect_on_aggression(self) -> int:
-        """
-        Wpływ światła na aggression (aggression: -10..+10):
-
-        - Za ciemno (level < neutral) => aggression rośnie (w stronę dodatnią)
-        - Za jasno  (level > neutral) => aggression spada (w stronę ujemną)
-
-        Czułość:
-          co `light_sensitivity` punktów różnicy światła -> ok. 1 punkt aggression
-
-        Żeby nie było “martwej strefy” przez round(),
-        robimy:
-          magnitude = abs(delta_level) // sens  (min 1 jeśli delta != 0)
-          sign = +1 jeśli ciemniej, -1 jeśli jaśniej
-        i clamp per tick do +/- max_light_effect_per_tick.
-        """
         level = int(self.agent.current_light_level)
         neutral = int(self.agent.neutral_light_level)
         sens = max(1, int(self.agent.light_sensitivity))
 
-        delta = neutral - level  # >0 ciemniej (aggr +), <0 jaśniej (aggr -)
+        delta = neutral - level
         if delta == 0:
             return 0
 
         magnitude = abs(delta) // sens
         if magnitude <= 0:
-            magnitude = 1  # minimalny efekt jeśli różnica istnieje
+            magnitude = 1
 
         sign = 1 if delta > 0 else -1
         effect = sign * magnitude
@@ -168,16 +128,13 @@ class SimulateBehaviour(PeriodicBehaviour):
         return effect
 
     async def run(self):
-        # --- 1) Aktualizacja stanu w czasie (bez resetowania) ---
         prev_hunger = int(getattr(self.agent.state, "hunger", 0) or 0)
         prev_aggr = int(getattr(self.agent.state, "aggression", 0) or 0)
 
-        # Głód narasta
-        hunger_inc = random.randint(self.agent.hunger_tick_min, self.agent.hunger_tick_max)
+        hunger_inc = random.randint(
+            self.agent.hunger_tick_min, self.agent.hunger_tick_max
+        )
         hunger = _clamp(prev_hunger + hunger_inc, 0, self.agent.hunger_max)
-
-        # --- aggression model: -10..+10 ---
-        # Bazowy dryf: hunger podbija aggression dodatnio + szum
         hunger_pressure = 0
         if hunger >= 70:
             hunger_pressure = 2
@@ -186,7 +143,6 @@ class SimulateBehaviour(PeriodicBehaviour):
 
         noise = random.choice([-1, 0, 0, 1])
 
-        # Wpływ światła
         light_effect = self._compute_light_effect_on_aggression()
 
         aggr = prev_aggr + hunger_pressure + noise + light_effect
@@ -200,7 +156,6 @@ class SimulateBehaviour(PeriodicBehaviour):
             f"Aggr={aggr} (light={self.agent.current_light_level}, lightΔ={light_effect})"
         )
 
-        # --- 2) Symulator -> FeedControl (inform) ---
         msg_feed = build_message(
             to=self.agent.feed_control_jid,
             performative="inform",
@@ -227,7 +182,6 @@ class SimulateBehaviour(PeriodicBehaviour):
             )
             await self.send(msg_hunger_high)
 
-        # --- 3) Symulator -> BehaviorAndAlarm (inform) ---
         msg_behavior = build_message(
             to=self.agent.behavior_alarm_jid,
             performative="inform",
@@ -241,7 +195,6 @@ class SimulateBehaviour(PeriodicBehaviour):
         )
         await self.send(msg_behavior)
 
-        # Zdarzenie progowe: agresja dodatnia (tylko dodatnia, jak w Twoim założeniu)
         if aggr >= self.agent.aggression_threshold:
             msg_aggr = build_message(
                 to=self.agent.behavior_alarm_jid,
@@ -257,7 +210,6 @@ class SimulateBehaviour(PeriodicBehaviour):
             )
             await self.send(msg_aggr)
 
-        # --- 4) Symulator -> UI (inform/update_state) ---
         msg_ui = build_message(
             to=self.agent.ui_jid,
             performative="inform",

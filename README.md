@@ -1,5 +1,12 @@
 # Projekt systemu agentowego - kurnik
 
+## Frontend
+
+```commandline
+npm install
+ng serve
+```
+
 ## Inicjalizacja środowiska
 
 ### Windows:
@@ -7,7 +14,7 @@
 ```commandline
 python -m venv venv
 .\venv\Scripts\activate
-pip install spade pymongo flask
+pip install -r requirements.txt
 ```
 
 ### Linux:
@@ -15,7 +22,7 @@ pip install spade pymongo flask
 ```bash
 python -m venv venv
 source venv/bin/activate
-pip install spade pymongo flask
+pip install -r requirements.txt
 ```
 
 ## Inicjalizacja serwera xmpp

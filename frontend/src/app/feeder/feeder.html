@@ -1,0 +1,27 @@
+<div class="header">
+  <div class="h-title">Podajnik paszy</div>
+  <div class="h-badge">{{ pct }}%</div>
+</div>
+
+<div class="meter">
+  <div class="bar" [style.width.%]="pct"></div>
+</div>
+
+<div class="grid">
+  <div class="stat">
+    <div class="k">Poziom</div>
+    <div class="v">{{ safeLevel }}</div>
+  </div>
+
+  <div class="stat">
+    <div class="k">Pojemność</div>
+    <div class="v">{{ capacity }}</div>
+  </div>
+
+  <div class="stat">
+    <div class="k">Zaktualizowano</div>
+    <div class="v">
+      <ng-container > {{ lastUpdateMs | date:'dd/MM/yyyy HH:mm:ss' }} </ng-container>
+    </div>
+  </div>
+</div>
