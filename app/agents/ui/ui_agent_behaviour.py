@@ -1,8 +1,10 @@
 import os
 import time
 from datetime import datetime, timezone
+from typing import Any, Dict
 
 from spade.behaviour import CyclicBehaviour
+
 from utils.messaging import parse_content
 
 
@@ -19,10 +21,6 @@ def _clear_console():
 
 
 def _stable_hash(obj) -> str:
-    """
-    Stabilny "hash" do dedup kluczy dla dict/list/str/int.
-    Nie kryptograficzny, tylko do UI.
-    """
     try:
         if obj is None:
             return "none"
@@ -39,22 +37,18 @@ def _stable_hash(obj) -> str:
 
 
 class ReceiveBehaviour(CyclicBehaviour):
-    """
-    UI w konsoli, ale bez spamu:
-    - aktualizuje stan na każdej wiadomości
-    - renderuje max raz na render_interval_sec
-    - (opcjonalnie) czyści ekran i pokazuje snapshot
-    - deduplikuje eventy w oknie czasu
-    """
-
     def __init__(
         self,
-        render_interval_sec: float = 1.0,
+        *,
+        ws_hub=None,
+            render_interval_sec: float = 1.0,
         dedup_window_sec: float = 3.0,
         clear_screen: bool = False,
         max_events: int = 30,
+        also_print_console: bool = False,
     ):
         super().__init__()
+        self.ws_hub = ws_hub
         self.render_interval_sec = float(render_interval_sec)
         self._last_render_at = 0.0
         self._dirty = False
@@ -64,41 +58,39 @@ class ReceiveBehaviour(CyclicBehaviour):
 
         self.clear_screen = bool(clear_screen)
         self.max_events = int(max_events)
+        self.also_print_console = bool(also_print_console)
 
     async def run(self):
-        # self-heal: upewnij się, że agent ma pola stanu
         if not hasattr(self.agent, "hens"):
             self.agent.hens = {}
         if not hasattr(self.agent, "feed"):
             self.agent.feed = {}
         if not hasattr(self.agent, "light"):
             self.agent.light = {}
+        if not hasattr(self.agent, "lights_by_hen"):
+            self.agent.lights_by_hen = {}
         if not hasattr(self.agent, "last_events"):
             self.agent.last_events = []
 
-        # 1) weź pierwszą wiadomość (czekamy krótko)
         first = await self.receive(timeout=1)
         if not first:
             await self._maybe_render()
             return
 
-        # 2) zbierz “burst” kolejnych wiadomości bez czekania
         msgs = [first]
         while True:
-            m = await self.receive(timeout=0)  # natychmiast
+            m = await self.receive(timeout=0)
             if not m:
                 break
             msgs.append(m)
 
         changed_any = False
 
-        # 3) przetwórz całą paczkę
         for msg in msgs:
             data = parse_content(msg) or {}
             sender = str(getattr(msg, "sender", "") or "")
             conv = msg.get_metadata("conversation") or "unknown"
 
-            changed = False
             if conv == "update_state":
                 changed = await self.handle_update_state(sender, data)
             elif conv == "ui_update":
@@ -121,9 +113,7 @@ class ReceiveBehaviour(CyclicBehaviour):
 
         if changed_any:
             self._dirty = True
-
-        # 4) render raz dla całej paczki
-        await self._maybe_render()
+            await self._maybe_render()
 
     async def _maybe_render(self):
         if not self._dirty:
@@ -131,16 +121,37 @@ class ReceiveBehaviour(CyclicBehaviour):
         now = _now_monotonic()
         if now - self._last_render_at < self.render_interval_sec:
             return
+
         self._last_render_at = now
         self._dirty = False
-        self.render()
+
+        await self._broadcast_snapshot()
+
+        if self.also_print_console:
+            self.render()
+
+    def _make_snapshot(self) -> Dict[str, Any]:
+                return {
+            "type": "ui_snapshot",
+            "ts": _utc_now_iso(),
+            "state": {
+                "feed": self.agent.feed or {},
+                "light": self.agent.light or {},
+                "lights_by_hen": getattr(self.agent, "lights_by_hen", {}) or {},
+                "hens": self.agent.hens or {},
+            },
+            "events": (self.agent.last_events or [])[-8:],          }
+
+    async def _broadcast_snapshot(self) -> None:
+        if not self.ws_hub:
+            return
+        try:
+            await self.ws_hub.broadcast(self._make_snapshot())
+        except Exception:
+            return
+
 
     async def handle_logging(self, sender: str, data: dict) -> bool:
-        """
-        Normalizuje eventy z LOGGER:
-        logger zapisuje np.:
-          {'timestamp': ..., 'sender': ..., 'conversation': 'logging', ..., 'data': {'event': '...', ...}}
-        """
         if not isinstance(data, dict):
             return False
 
@@ -159,7 +170,6 @@ class ReceiveBehaviour(CyclicBehaviour):
         if event in ("aggression_alert", "critical_event"):
             return await self.handle_update_state(sender, {"type": "critical_event", "payload": payload})
 
-        # inne logi: jako event, ale dedup
         dedup_key = (
             f"log:{event}:{payload.get('hen_id')}:{payload.get('level')}:"
             f"{payload.get('reason')}:{payload.get('aggression')}:{payload.get('hunger')}"
@@ -175,10 +185,6 @@ class ReceiveBehaviour(CyclicBehaviour):
         )
 
     async def handle_update_state(self, sender: str, data: dict) -> bool:
-        """
-        Obsługuje nowy, spójny kanał: conversation=update_state
-        Zwraca True jeśli stan/UI się zmienił.
-        """
         if not isinstance(data, dict):
             return False
 
@@ -199,9 +205,9 @@ class ReceiveBehaviour(CyclicBehaviour):
             changed = (old != new_state)
 
         elif msg_type == "feed_state_update":
-            # stan początkowy/okresowy paszy
             new_feed = {
                 **(self.agent.feed or {}),
+                "capacity": payload.get("capacity"),
                 "remaining_feed": payload.get("remaining_feed"),
                 "last_action": "state_update",
                 "last_update": _utc_now_iso(),
@@ -212,6 +218,7 @@ class ReceiveBehaviour(CyclicBehaviour):
         elif msg_type == "feed_dispensed":
             new_feed = {
                 **(self.agent.feed or {}),
+                "capacity": payload.get("capacity"),
                 "remaining_feed": payload.get("remaining_feed"),
                 "last_action": "feed_dispensed",
                 "last_update": _utc_now_iso(),
@@ -219,7 +226,7 @@ class ReceiveBehaviour(CyclicBehaviour):
                 "portion": payload.get("portion"),
                 "hunger_before": payload.get("hunger_before"),
             }
-            changed = new_feed != (self.agent.feed or {})
+            feed_changed = new_feed != (self.agent.feed or {})
             self.agent.feed = new_feed
 
             ev_added = self._push_event_dedup(
@@ -231,11 +238,11 @@ class ReceiveBehaviour(CyclicBehaviour):
                     "payload": payload,
                 },
             )
-            changed = changed or ev_added
+            changed = feed_changed or ev_added
 
         elif msg_type == "light_state_update":
             level = payload.get("level")
-            hen_id = payload.get("hen_id")  # może być None (global)
+            hen_id = payload.get("hen_id")
             entry = {
                 "level": level,
                 "reason": payload.get("reason"),
@@ -243,12 +250,16 @@ class ReceiveBehaviour(CyclicBehaviour):
                 "last_update": _utc_now_iso(),
             }
 
-            # globalny podgląd (jak nie ma hen_id)
             if not hen_id:
+                old = self.agent.light if isinstance(self.agent.light, dict) else {}
                 self.agent.light = entry
+                changed = (old != entry)
             else:
-                # per-hen
+                if not hasattr(self.agent, "lights_by_hen") or self.agent.lights_by_hen is None:
+                    self.agent.lights_by_hen = {}
+                old = self.agent.lights_by_hen.get(hen_id)
                 self.agent.lights_by_hen[hen_id] = entry
+                changed = (old != entry)
 
         elif msg_type == "critical_event":
             event_name = payload.get("event", "critical_event")
@@ -265,7 +276,7 @@ class ReceiveBehaviour(CyclicBehaviour):
                     "payload": payload,
                 },
             )
-            changed = changed or ev_added
+            changed = ev_added
 
         else:
             ev_added = self._push_event_dedup(
@@ -277,14 +288,11 @@ class ReceiveBehaviour(CyclicBehaviour):
                     "payload": payload or data,
                 },
             )
-            changed = changed or ev_added
+            changed = ev_added
 
         return changed
 
     async def handle_legacy_ui_update(self, sender: str, data: dict) -> bool:
-        """
-        Wsteczna kompatybilność: conversation=ui_update
-        """
         if not isinstance(data, dict):
             return False
 
@@ -305,6 +313,7 @@ class ReceiveBehaviour(CyclicBehaviour):
         if event_type == "feed_dispensed":
             new_feed = {
                 **(self.agent.feed or {}),
+                "capacity": payload.get("capacity"),
                 "remaining_feed": payload.get("remaining_feed"),
                 "last_action": "feed_dispensed",
                 "last_update": _utc_now_iso(),
@@ -326,16 +335,15 @@ class ReceiveBehaviour(CyclicBehaviour):
             return changed or ev_added
 
         if event_type == "light_change":
-            # legacy miał mode/reason — ale w render i tak pokazujemy tylko level
             new_light = {
                 "level": payload.get("level"),
                 "hen_id": payload.get("hen_id"),
                 "reason": payload.get("reason"),
                 "last_update": _utc_now_iso(),
             }
-            changed = new_light != (self.agent.light or {})
+            old = self.agent.light if isinstance(self.agent.light, dict) else {}
             self.agent.light = new_light
-            return changed
+            return old != new_light
 
         return self._push_event_dedup(
             key=f"legacy:{event_type}:{sender}:{_stable_hash(payload or data)}",
@@ -353,9 +361,6 @@ class ReceiveBehaviour(CyclicBehaviour):
             self.agent.last_events = self.agent.last_events[-self.max_events :]
 
     def _push_event_dedup(self, key: str, event: dict) -> bool:
-        """
-        Zwraca True jeśli event został dodany, False jeśli zduplikowany.
-        """
         now = _now_monotonic()
         last = self._event_dedup.get(key)
         if last is not None and (now - last) < self._event_dedup_window_sec:
@@ -372,17 +377,15 @@ class ReceiveBehaviour(CyclicBehaviour):
         print(f"[UI] Stan kurnika | {_utc_now_iso()}")
         print("=" * 70)
 
-        # Pasza
         if self.agent.feed:
             print(
-                f"Pasza: remaining={self.agent.feed.get('remaining_feed')} | "
+                f"Pasza: remaining={self.agent.feed.get('remaining_feed')} capacity={self.agent.feed.get('capacity')} | "
                 f"last_action={self.agent.feed.get('last_action')} | "
                 f"hen={self.agent.feed.get('hen_id')} | portion={self.agent.feed.get('portion')}"
             )
         else:
             print("Pasza: brak danych")
 
-        # Światło
         if getattr(self.agent, "lights_by_hen", None):
             print("Światło per kura:")
             for hid, lst in sorted(self.agent.lights_by_hen.items()):
