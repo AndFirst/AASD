@@ -1,0 +1,25 @@
+<section class="card">
+  <header class="header">
+    <h2>Ostrzeżenia</h2>
+    <span class="badge" *ngIf="warnings.length">{{ warnings.length }}</span>
+  </header>
+
+  <div class="empty" *ngIf="warnings.length === 0">
+    Brak ostrzeżeń — kurnik spokojny 🐓
+  </div>
+
+  <ul class="list" *ngIf="warnings.length > 0">
+    <li class="item" *ngFor="let w of warnings; trackBy: trackById" [class.noFeed]="w.type==='no_feed'"
+        [class.aggr]="w.type==='aggression_alert'">
+      <div class="left">
+        <div class="top">
+          <strong class="title">{{ w.title }}</strong>
+          <span class="time">{{ fmt(w.ts) }}</span>
+        </div>
+        <div class="msg">{{ w.message }}</div>
+      </div>
+
+      <button class="btn" type="button" (click)="dismiss(w.id)">Zamknij</button>
+    </li>
+  </ul>
+</section>

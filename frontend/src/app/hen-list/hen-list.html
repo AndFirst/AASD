@@ -1,0 +1,52 @@
+<div class="header">
+  <div class="h-title">Kury</div>
+  <div class="h-badge">{{ hens.length }} szt.</div>
+</div>
+
+<div class="list">
+  <div class="hen" *ngFor="let h of hens">
+    <div class="top">
+      <div class="name">🐔 {{ h.id }}</div>
+    </div>
+
+    <div class="metric">
+      <div class="label">Zaktualizowano</div>
+      <div class="last-update">{{h.last_update | date:'dd/MM/yyyy HH:mm:ss' }}</div>
+    </div>
+
+    <div class="metric">
+      <div class="label">Głód</div>
+      <div class="meter">
+        <div class="bar hunger" [style.width.%]="clamp(h.hunger)"></div>
+      </div>
+      <div class="val">{{ clamp(h.hunger) }}%</div>
+    </div>
+
+    <div class="metric">
+      <div class="label">Agresja</div>
+
+      <div class="aggr-meter">
+        <!-- linia środkowa (0) -->
+        <div class="zero-line"></div>
+
+        <!-- pasek -->
+        <div
+          class="aggr-bar"
+          [class.neg]="aggrSide(h.aggression) === 'neg'"
+          [class.pos]="aggrSide(h.aggression) === 'pos'"
+          [style.width.%]="aggrWidth(h.aggression)">
+        </div>
+      </div>
+
+      <div class="val">{{ h.aggression }}</div>
+    </div>
+
+    <div class="metric">
+      <div class="label">Oświetlenie</div>
+      <div class="meter">
+        <div class="bar lighting" [style.width.%]="clamp(h.light_level)"></div>
+      </div>
+      <div class="val">{{ clamp(h.light_level) }}%</div>
+    </div>
+  </div>
+</div>
