@@ -1,8 +1,8 @@
 import { Injectable, NgZone, inject } from '@angular/core';
-import { Subject, interval, Subscription } from 'rxjs';
-export type IsoUtcString = string; // e.g. "2025-12-31T08:27:28.853479+00:00"
+import { Subject } from 'rxjs';
+export type IsoUtcString = string;
 
-export type HenId = string; // e.g. "simulator4@localhost"
+export type HenId = string;
 
 export type HenState = {
   hunger: number;
@@ -13,7 +13,7 @@ export type HenState = {
 export type FeedState = {
   capacity: number;
   remaining_feed: number;
-  last_action: string | null; // "state_update" | "feed_dispensed" | ...
+  last_action: string | null;
   last_update: IsoUtcString;
   hen_id?: HenId | null;
   portion?: number | null;
@@ -79,16 +79,25 @@ export type UiSnapshotMessage = {
   events: CriticalEvent[];
 };
 
-/** Jeśli WS może wysyłać też inne typy wiadomości niż snapshot */
-export type WsEvent = UiSnapshotMessage;
+export type UiEventMessage = {
+  type: "ui_event";
+  ts: IsoUtcString;
+  sender: string;
+  event: CriticalEvent | {
+    ts: IsoUtcString;
+    sender: string;
+    type: string;
+    payload: Record<string, unknown>;
+  };
+};
 
+export type WsEvent = UiSnapshotMessage | UiEventMessage;
 
 @Injectable({ providedIn: 'root' })
 export class WsService {
   private zone = inject(NgZone);
 
   private socket?: WebSocket;
-  private mockSub?: Subscription;
 
   private eventsSubject = new Subject<WsEvent>();
   readonly events$ = this.eventsSubject.asObservable();

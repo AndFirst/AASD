@@ -1,7 +1,7 @@
 from spade.agent import Agent
 
 from agents.ui.ui_agent_behaviour import ReceiveBehaviour
-from agents.ui.ui_ws import UiWebSocketHub
+from agents.ui.ui_ws import UiWebSocketHub, start_ws_server
 
 
 class UIAgent(Agent):
@@ -14,6 +14,7 @@ class UIAgent(Agent):
         self.last_events: list[dict] = []
 
         hub = UiWebSocketHub()
+        await start_ws_server(hub, host="0.0.0.0", port=8765)
         recv_beh = ReceiveBehaviour(
             ws_hub=hub,
             render_interval_sec=0.5,
