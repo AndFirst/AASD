@@ -1,67 +1,158 @@
+import time
 from spade.behaviour import CyclicBehaviour
 
 from utils.messaging import parse_content, build_message
 
 
+def _clamp(v: int, lo: int, hi: int) -> int:
+    return max(lo, min(hi, v))
+
+
 class ReceiveBehaviour(CyclicBehaviour):
+    def __init__(self):
+        super().__init__()
+        # per hen: kiedy ostatnio wysłaliśmy regulate
+        self._last_regulate_at: dict[str, float] = {}
+        # per hen: ostatnia aggression, którą wysłaliśmy (żeby nie powtarzać 10x tego samego)
+        self._last_sent_aggr: dict[str, int] = {}
+
     async def run(self):
         msg = await self.receive(timeout=10)
         if not msg:
             return
 
-        content = parse_content(msg)
+        content = parse_content(msg) or {}
         conv = msg.get_metadata("conversation")
+        msg_type = content.get("type")
 
-        if conv == "behavior" and content.get("type") == "behavior_update":
-            await self.handle_behavior_update(content)
+        # Symulator -> Monitor Behawioralny
+        if conv == "behavior" and msg_type == "behavior_update":
+            await self.handle_behavior_message(content)
+
+        # (opcjonalnie) jeśli dalej chcesz obsługiwać "aggression_detected"
+        elif conv == "behavior" and msg_type == "aggression_detected":
+            await self.handle_behavior_message(content)
+
+        # Inne agenty -> Alarmowy Powiadamiacz
         elif conv == "alerts":
             await self.handle_external_alert(content)
 
-    async def handle_behavior_update(self, content: dict):
-        aggression = content.get("aggression", 0)
-        hunger = content.get("hunger", 0)
+    async def handle_behavior_message(self, content: dict):
+        hen_id = content.get("hen_id")
+        if not hen_id:
+            return
 
-        if aggression >= self.agent.aggression_threshold:
-            print(f"[BEHAV] Wykryta agresja={aggression}, hunger={hunger}")
+        aggression = int(content.get("aggression", 0) or 0)
+        hunger = int(content.get("hunger", 0) or 0)
+
+        # aggression: -10..+10 (twardy clamp)
+        aggression = _clamp(aggression, -self.agent.max_abs_aggression, self.agent.max_abs_aggression)
+
+        # 1) Alarm progowy: jeśli |aggression| >= threshold
+        if abs(aggression) >= int(self.agent.aggression_threshold):
+            print(f"[BEHAV] ALARM: aggression={aggression}, hunger={hunger}, hen_id={hen_id}")
+
             await self.raise_critical_event(
-                "aggression_alert",
-                {"aggression": aggression, "hunger": hunger},
+                event_type="aggression_alert",
+                payload={
+                    "hen_id": hen_id,
+                    "aggression": aggression,
+                    "hunger": hunger,
+                    "threshold": self.agent.aggression_threshold,
+                },
             )
-            await self.request_calm_lighting()
+
+        # 2) Regulacja światła:
+        # WAŻNE: wysyłamy update także gdy aggression wraca do okna (żeby światło wróciło do neutral)
+        await self._maybe_send_aggression_update(hen_id=hen_id, aggression=aggression, hunger=hunger)
+
+    async def _maybe_send_aggression_update(self, hen_id: str, aggression: int, hunger: int):
+        now = time.monotonic()
+        last_t = float(self._last_regulate_at.get(hen_id, 0.0))
+
+        # throttle czasowy
+        if (now - last_t) < float(self.agent.regulate_min_interval_sec):
+            return
+
+        # dedup: jeśli aggression identyczna jak ostatnio wysłana, nie wysyłaj ponownie
+        last_aggr = self._last_sent_aggr.get(hen_id)
+        if last_aggr is not None and last_aggr == aggression:
+            return
+
+        self._last_regulate_at[hen_id] = now
+        self._last_sent_aggr[hen_id] = aggression
+
+        print(
+            f"[BEHAV] AGGR->LIGHT: hen_id={hen_id}, aggr={aggression} "
+            f"(target {self.agent.aggression_target_min}..{self.agent.aggression_target_max})"
+        )
+
+        await self.send_aggression_update_to_lighting(
+            reason="aggression_update",
+            hen_id=hen_id,
+            aggression=aggression,
+            hunger=hunger,
+        )
 
     async def handle_external_alert(self, content: dict):
-        event_type = content.get("event_type", "external_alert")
-        payload = content.get("payload", {})
+        event_type = content.get("event_type") or content.get("type") or "external_alert"
+        payload = content.get("payload", {}) or {}
+
         print(f"[ALARM] Alert z innego agenta: {event_type}, {payload}")
         await self.raise_critical_event(event_type, payload)
 
     async def raise_critical_event(self, event_type: str, payload: dict):
-        data = {
-            "event_type": event_type,
-            "payload": payload,
-        }
-
+        # UI: update_state
         msg_ui = build_message(
             to=self.agent.ui_jid,
             performative="inform",
-            conversation="ui_update",
-            content=data,
+            conversation="update_state",
+            content={
+                "type": "critical_event",
+                "source": str(self.agent.jid),
+                "payload": {
+                    "event": event_type,
+                    **(payload or {}),
+                },
+            },
         )
         await self.send(msg_ui)
 
+        # Logger: log_event
         msg_log = build_message(
             to=self.agent.logger_jid,
             performative="inform",
-            conversation="log",
-            content=data,
+            conversation="logging",
+            content={
+                "type": "log_event",
+                "source": str(self.agent.jid),
+                "payload": {
+                    "event": event_type,
+                    **(payload or {}),
+                },
+            },
         )
         await self.send(msg_log)
 
-    async def request_calm_lighting(self):
+    async def send_aggression_update_to_lighting(self, reason: str, hen_id: str, aggression: int, hunger: int):
+        """
+        Protokół zgodny z poprawionym LightingBehaviour:
+        wysyłamy aggression_update, Lighting liczy setpoint i:
+        - jak aggression w oknie => wraca do neutral
+        - jak poza => ustawia target = neutral + gain*aggression
+        """
         msg = build_message(
             to=self.agent.lighting_jid,
             performative="request",
             conversation="lighting",
-            content={"type": "calm_hens"},
+            content={
+                "type": "aggression_update",
+                "payload": {
+                    "reason": reason,
+                    "hen_id": hen_id,
+                    "aggression": int(aggression),
+                    "hunger": int(hunger),
+                },
+            },
         )
         await self.send(msg)
