@@ -1,8 +1,8 @@
 import json
 import random
+from typing import Any
 
-from spade.behaviour import PeriodicBehaviour, CyclicBehaviour
-
+from spade.behaviour import CyclicBehaviour, PeriodicBehaviour
 from utils.messaging import build_message
 
 
@@ -10,7 +10,7 @@ def _clamp(value: int, low: int, high: int) -> int:
     return max(low, min(high, value))
 
 
-def _safe_parse_body(body: str):
+def _safe_parse_body(body: str) -> dict | Any | None:
     if body is None:
         return None
     if isinstance(body, dict):
@@ -29,7 +29,7 @@ def _safe_parse_body(body: str):
 
 
 class ReceiveFeedingBehaviour(CyclicBehaviour):
-    async def run(self):
+    async def run(self) -> None:
         msg = await self.receive(timeout=1)
         if not msg:
             return
@@ -61,13 +61,11 @@ class ReceiveFeedingBehaviour(CyclicBehaviour):
         new_hunger = max(0, prev - amount)
         self.agent.state.hunger = new_hunger
 
-        print(
-            f"[SIM:{self.agent.hen_id}] Nakarmiona: -{amount} hunger ({prev} -> {new_hunger})"
-        )
+        print(f"[SIM:{self.agent.hen_id}] Nakarmiona: -{amount} hunger ({prev} -> {new_hunger})")
 
 
 class ReceiveLightingBehaviour(CyclicBehaviour):
-    async def run(self):
+    async def run(self) -> None:
         msg = await self.receive(timeout=1)
         if not msg:
             return
@@ -101,9 +99,7 @@ class ReceiveLightingBehaviour(CyclicBehaviour):
 
         if prev != level:
             reason = payload.get("reason", "unknown")
-            print(
-                f"[SIM:{self.agent.hen_id}] Światło: level {prev} -> {level} (reason={reason})"
-            )
+            print(f"[SIM:{self.agent.hen_id}] Światło: level {prev} -> {level} (reason={reason})")
 
 
 class SimulateBehaviour(PeriodicBehaviour):
@@ -127,13 +123,11 @@ class SimulateBehaviour(PeriodicBehaviour):
         effect = _clamp(effect, -max_eff, max_eff)
         return effect
 
-    async def run(self):
+    async def run(self) -> None:
         prev_hunger = int(getattr(self.agent.state, "hunger", 0) or 0)
         prev_aggr = int(getattr(self.agent.state, "aggression", 0) or 0)
 
-        hunger_inc = random.randint(
-            self.agent.hunger_tick_min, self.agent.hunger_tick_max
-        )
+        hunger_inc = random.randint(self.agent.hunger_tick_min, self.agent.hunger_tick_max)
         hunger = _clamp(prev_hunger + hunger_inc, 0, self.agent.hunger_max)
         hunger_pressure = 0
         if hunger >= 70:

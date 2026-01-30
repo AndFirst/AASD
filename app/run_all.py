@@ -6,10 +6,10 @@ from agents.hen_simulator.agent import HenSimulatorAgent
 from agents.lighting.lighting_agent import LightingAgent
 from agents.logger.logger_agent import LoggerAgent
 from agents.ui.ui_agent import UIAgent
-from utils.config_loader import load_config, get_agent_credentials
+from utils.config_loader import get_agent_credentials, load_config
 
 
-async def main():
+async def main() -> None:
     cfg = load_config()
 
     agents = []

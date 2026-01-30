@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from typing import Any, Dict, Set
+from typing import Any, Set
 
 import websockets
 
@@ -19,7 +19,7 @@ class UiWebSocketHub:
         self.send_timeout_sec = float(send_timeout_sec)
         self.max_queue = int(max_queue)
 
-    async def handler(self, ws, *args, **kwargs):
+    async def handler(self, ws, *args, **kwargs) -> None:
         async with self._lock:
             self.clients.add(ws)
 
@@ -32,7 +32,7 @@ class UiWebSocketHub:
             async with self._lock:
                 self.clients.discard(ws)
 
-    async def broadcast(self, payload: Dict[str, Any]) -> None:
+    async def broadcast(self, payload: dict[str, Any]) -> None:
         msg = json.dumps(payload, ensure_ascii=False)
 
         async with self._lock:
@@ -41,7 +41,7 @@ class UiWebSocketHub:
         if not clients_snapshot:
             return
 
-        async def _safe_send(ws):
+        async def _safe_send(ws: Any) -> bool:
             try:
                 await asyncio.wait_for(
                     ws.send(msg),

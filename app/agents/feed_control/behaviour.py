@@ -1,8 +1,7 @@
 import time
 
 from spade.behaviour import CyclicBehaviour
-
-from utils.messaging import parse_content, build_message
+from utils.messaging import build_message, parse_content
 
 
 def _now() -> float:
@@ -10,10 +9,10 @@ def _now() -> float:
 
 
 class ReceiveBehaviour(CyclicBehaviour):
-    async def on_start(self):
+    async def on_start(self) -> None:
         await self._broadcast_feed_state_update(reason="init")
 
-    async def run(self):
+    async def run(self) -> None:
         msg = await self.receive(timeout=10)
         if not msg:
             return
@@ -39,7 +38,7 @@ class ReceiveBehaviour(CyclicBehaviour):
 
             await self.handle_batch_feeding()
 
-    async def handle_batch_feeding(self):
+    async def handle_batch_feeding(self) -> None:
         if not self.agent.feed_state:
             return
 
@@ -76,9 +75,7 @@ class ReceiveBehaviour(CyclicBehaviour):
             if now - last < float(self.agent.feed_cooldown_s):
                 continue
 
-            portion = min(
-                int(self.agent.feed_state.level), int(self.agent.portion_size)
-            )
+            portion = min(int(self.agent.feed_state.level), int(self.agent.portion_size))
             if portion <= 0:
                 await self.send_no_feed_alert(hen_id=hen_id, hunger=hunger)
                 break
@@ -86,15 +83,11 @@ class ReceiveBehaviour(CyclicBehaviour):
             self.agent.feed_state.level -= portion
             self.agent.last_fed_at[hen_id] = now
 
-            print(
-                f"[FEED] Karmienie: hen_id={hen_id}, porcja={portion}, zapas={self.agent.feed_state.level}"
-            )
+            print(f"[FEED] Karmienie: hen_id={hen_id}, porcja={portion}, zapas={self.agent.feed_state.level}")
 
             await self.send_feed_dispensed_to_hen(hen_id=hen_id, amount=portion)
 
-            await self.notify_feed_dispensed(
-                hen_id=hen_id, portion=portion, hunger_before=hunger
-            )
+            await self.notify_feed_dispensed(hen_id=hen_id, portion=portion, hunger_before=hunger)
 
             fed_any = True
             fed_count += 1
@@ -105,7 +98,7 @@ class ReceiveBehaviour(CyclicBehaviour):
         if int(self.agent.feed_state.level) <= int(self.agent.low_feed_threshold):
             await self.send_low_feed_warning()
 
-    async def _broadcast_feed_state_update(self, reason: str):
+    async def _broadcast_feed_state_update(self, reason: str) -> None:
         if not self.agent.feed_state:
             return
 
@@ -145,7 +138,7 @@ class ReceiveBehaviour(CyclicBehaviour):
         )
         await self.send(msg_log)
 
-    async def send_feed_dispensed_to_hen(self, hen_id: str, amount: int):
+    async def send_feed_dispensed_to_hen(self, hen_id: str, amount: int) -> None:
         msg_hen = build_message(
             to=hen_id,
             performative="inform",
@@ -158,9 +151,7 @@ class ReceiveBehaviour(CyclicBehaviour):
         )
         await self.send(msg_hen)
 
-    async def notify_feed_dispensed(
-        self, hen_id: str, portion: int, hunger_before: int
-    ):
+    async def notify_feed_dispensed(self, hen_id: str, portion: int, hunger_before: int) -> None:
         msg_ui = build_message(
             to=self.agent.ui_jid,
             performative="inform",
@@ -196,7 +187,7 @@ class ReceiveBehaviour(CyclicBehaviour):
         )
         await self.send(msg_logger)
 
-    async def send_low_feed_warning(self):
+    async def send_low_feed_warning(self) -> None:
         payload = {
             "type": "low_feed_warning",
             "source": str(self.agent.jid),
@@ -214,16 +205,14 @@ class ReceiveBehaviour(CyclicBehaviour):
         )
         await self.send(msg_alarm)
 
-    async def send_no_feed_alert(self, hen_id: str, hunger: int):
+    async def send_no_feed_alert(self, hen_id: str, hunger: int) -> None:
         payload = {
             "type": "no_feed",
             "source": str(self.agent.jid),
             "payload": {
                 "hen_id": hen_id,
                 "hunger": int(hunger),
-                "remaining_feed": int(self.agent.feed_state.level)
-                if self.agent.feed_state
-                else 0,
+                "remaining_feed": int(self.agent.feed_state.level) if self.agent.feed_state else 0,
             },
         }
 

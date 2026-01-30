@@ -1,20 +1,17 @@
 import asyncio
 
-from spade.agent import Agent
-
 from agents.hen_simulator.behaviour import (
-    SimulateBehaviour,
     ReceiveFeedingBehaviour,
     ReceiveLightingBehaviour,
+    SimulateBehaviour,
 )
 from models.hen_state import HenState
-from utils.config_loader import load_config, get_agent_credentials
+from spade.agent import Agent
+from utils.config_loader import get_agent_credentials, load_config
 
 
 class HenSimulatorAgent(Agent):
-    def __init__(
-        self, jid: str, password: str, port: int = 5222, verify_security: bool = False
-    ):
+    def __init__(self, jid: str, password: str, port: int = 5222, verify_security: bool = False) -> None:
         super().__init__(jid, password, port, verify_security)
 
         self.state: HenState | None = None
@@ -43,7 +40,7 @@ class HenSimulatorAgent(Agent):
 
         self.max_light_effect_per_tick: int = 2
 
-    async def setup(self):
+    async def setup(self) -> None:
         print(f"[SIM:{self.hen_id}] Agent uruchomiony.")
         self.state = HenState()
 
@@ -57,31 +54,21 @@ class HenSimulatorAgent(Agent):
 
         sim_cfg = cfg.get("hen_simulator") or {}
 
-        self.current_light_level = int(
-            sim_cfg.get("initial_light_level", self.current_light_level)
-        )
-        self.neutral_light_level = int(
-            sim_cfg.get("neutral_light_level", self.neutral_light_level)
-        )
-        self.light_sensitivity = int(
-            sim_cfg.get("light_sensitivity", self.light_sensitivity)
-        )
-        self.max_light_effect_per_tick = int(
-            sim_cfg.get("max_light_effect_per_tick", self.max_light_effect_per_tick)
-        )
+        self.current_light_level = int(sim_cfg.get("initial_light_level", self.current_light_level))
+        self.neutral_light_level = int(sim_cfg.get("neutral_light_level", self.neutral_light_level))
+        self.light_sensitivity = int(sim_cfg.get("light_sensitivity", self.light_sensitivity))
+        self.max_light_effect_per_tick = int(sim_cfg.get("max_light_effect_per_tick", self.max_light_effect_per_tick))
 
         self.add_behaviour(SimulateBehaviour(period=5))
         self.add_behaviour(ReceiveFeedingBehaviour())
         self.add_behaviour(ReceiveLightingBehaviour())
 
 
-async def main():
+async def main() -> None:
     cfg = load_config()
     jid, password = get_agent_credentials("hen_simulator", cfg)
 
-    agent = HenSimulatorAgent(
-        jid, password, verify_security=cfg["xmpp"]["verify_security"]
-    )
+    agent = HenSimulatorAgent(jid, password, verify_security=cfg["xmpp"]["verify_security"])
     await agent.start(auto_register=False)
     print("HenSimulatorAgent jest online. CTRL+C aby zakończyć.")
 

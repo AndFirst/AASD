@@ -1,16 +1,13 @@
 import asyncio
 
-from spade.agent import Agent
-
 from agents.feed_control.behaviour import ReceiveBehaviour
 from models.environment_state import FeedState
-from utils.config_loader import load_config, get_agent_credentials
+from spade.agent import Agent
+from utils.config_loader import get_agent_credentials, load_config
 
 
 class FeedControlAgent(Agent):
-    def __init__(
-        self, jid: str, password: str, port: int = 5222, verify_security: bool = False
-    ):
+    def __init__(self, jid: str, password: str, port: int = 5222, verify_security: bool = False) -> None:
         super().__init__(jid, password, port, verify_security)
 
         self.behavior_alarm_jid: str | None = None
@@ -30,7 +27,7 @@ class FeedControlAgent(Agent):
 
         self.last_hunger: dict[str, int] = {}
 
-    async def setup(self):
+    async def setup(self) -> None:
         print("[FEED] Agent uruchomiony.")
         cfg = load_config()
         feeding_cfg = cfg.get("feeding", {}) or {}
@@ -54,13 +51,11 @@ class FeedControlAgent(Agent):
         self.add_behaviour(ReceiveBehaviour())
 
 
-async def main():
+async def main() -> None:
     cfg = load_config()
     jid, password = get_agent_credentials("feed_control", cfg)
 
-    agent = FeedControlAgent(
-        jid, password, verify_security=cfg["xmpp"]["verify_security"]
-    )
+    agent = FeedControlAgent(jid, password, verify_security=cfg["xmpp"]["verify_security"])
     await agent.start(auto_register=False)
     print("FeedControlAgent jest online. CTRL+C aby zakończyć.")
 

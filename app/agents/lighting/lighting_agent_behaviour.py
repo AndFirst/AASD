@@ -1,9 +1,8 @@
 import time
 
 from spade.behaviour import CyclicBehaviour
-
 from utils.config_loader import load_config
-from utils.messaging import parse_content, build_message
+from utils.messaging import build_message, parse_content
 
 
 def _clamp(v: int, lo: int, hi: int) -> int:
@@ -11,28 +10,20 @@ def _clamp(v: int, lo: int, hi: int) -> int:
 
 
 class LightningBehaviour(CyclicBehaviour):
-    async def on_start(self):
+    async def on_start(self) -> None:
         cfg = load_config()
-        n = int(
-            (cfg.get("hen_simulator", {}) or {}).get(
-                "count", getattr(self.agent, "hen_count", 5)
-            )
-        )
-        if not hasattr(self.agent, "hen_light_levels") or not isinstance(
-            self.agent.hen_light_levels, dict
-        ):
+        n = int((cfg.get("hen_simulator", {}) or {}).get("count", getattr(self.agent, "hen_count", 5)))
+        if not hasattr(self.agent, "hen_light_levels") or not isinstance(self.agent.hen_light_levels, dict):
             self.agent.hen_light_levels = {}
 
         for i in range(1, n + 1):
             hen_id = f"simulator{i}@localhost"
             if hen_id not in self.agent.hen_light_levels:
-                self.agent.hen_light_levels[hen_id] = int(
-                    getattr(self.agent, "neutral_level", 50)
-                )
+                self.agent.hen_light_levels[hen_id] = int(getattr(self.agent, "neutral_level", 50))
 
             await self._broadcast_light_update(reason="init", hen_id=hen_id)
 
-    async def run(self):
+    async def run(self) -> None:
         msg = await self.receive(timeout=10)
         if not msg:
             return
@@ -78,9 +69,7 @@ class LightningBehaviour(CyclicBehaviour):
             return False
 
         cur = int(
-            (getattr(self.agent, "hen_light_levels", {}) or {}).get(
-                hen_id, getattr(self.agent, "neutral_level", 50)
-            )
+            (getattr(self.agent, "hen_light_levels", {}) or {}).get(hen_id, getattr(self.agent, "neutral_level", 50))
         )
         min_delta = int(getattr(self.agent, "min_delta_to_send", 2))
         if abs(int(new_level) - cur) < min_delta:
@@ -88,7 +77,7 @@ class LightningBehaviour(CyclicBehaviour):
 
         return True
 
-    async def _set_level_for_hen(self, hen_id: str, new_level: int, reason: str):
+    async def _set_level_for_hen(self, hen_id: str, new_level: int, reason: str) -> None:
         lo = int(getattr(self.agent, "min_level", 0))
         hi = int(getattr(self.agent, "max_level", 100))
 
@@ -99,19 +88,15 @@ class LightningBehaviour(CyclicBehaviour):
 
         self.agent.hen_light_levels[hen_id] = new_level
 
-        if not hasattr(self.agent, "_last_set_at") or not isinstance(
-            self.agent._last_set_at, dict
-        ):
+        if not hasattr(self.agent, "_last_set_at") or not isinstance(self.agent._last_set_at, dict):
             self.agent._last_set_at = {}
-        if not hasattr(self.agent, "_last_sent_level") or not isinstance(
-            self.agent._last_sent_level, dict
-        ):
+        if not hasattr(self.agent, "_last_sent_level") or not isinstance(self.agent._last_sent_level, dict):
             self.agent._last_sent_level = {}
 
         self.agent._last_set_at[hen_id] = time.monotonic()
         await self._broadcast_light_update(reason=reason, hen_id=hen_id)
 
-    async def _handle_manual_set(self, payload: dict):
+    async def _handle_manual_set(self, payload: dict) -> None:
         hen_id = payload.get("hen_id")
         if not hen_id:
             return
@@ -129,7 +114,7 @@ class LightningBehaviour(CyclicBehaviour):
         reason = payload.get("reason", "manual_set")
         await self._set_level_for_hen(hen_id=hen_id, new_level=level, reason=reason)
 
-    async def _handle_aggression_update(self, payload: dict):
+    async def _handle_aggression_update(self, payload: dict) -> None:
         hen_id = payload.get("hen_id")
         if not hen_id:
             return
@@ -142,23 +127,15 @@ class LightningBehaviour(CyclicBehaviour):
         target = self._compute_target_level(aggression)
 
         cur = int(self.agent.hen_light_levels.get(hen_id, self.agent.neutral_level))
-        print(
-            f"[LIGHT] SETPOINT hen={hen_id} aggr={aggression} cur={cur} -> target={target}"
-        )
+        print(f"[LIGHT] SETPOINT hen={hen_id} aggr={aggression} cur={cur} -> target={target}")
 
-        await self._set_level_for_hen(
-            hen_id=hen_id, new_level=target, reason="regulate_to_target"
-        )
+        await self._set_level_for_hen(hen_id=hen_id, new_level=target, reason="regulate_to_target")
 
-    async def _broadcast_light_update(self, reason: str, hen_id: str):
+    async def _broadcast_light_update(self, reason: str, hen_id: str) -> None:
         if not hen_id:
             return
 
-        level = int(
-            self.agent.hen_light_levels.get(
-                hen_id, getattr(self.agent, "neutral_level", 50)
-            )
-        )
+        level = int(self.agent.hen_light_levels.get(hen_id, getattr(self.agent, "neutral_level", 50)))
 
         msg_ui = build_message(
             to=self.agent.ui_jid,
@@ -201,8 +178,6 @@ class LightningBehaviour(CyclicBehaviour):
         )
         await self.send(msg_hen)
 
-        if not hasattr(self.agent, "_last_sent_level") or not isinstance(
-            self.agent._last_sent_level, dict
-        ):
+        if not hasattr(self.agent, "_last_sent_level") or not isinstance(self.agent._last_sent_level, dict):
             self.agent._last_sent_level = {}
         self.agent._last_sent_level[hen_id] = level

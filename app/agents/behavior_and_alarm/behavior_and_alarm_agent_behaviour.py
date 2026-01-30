@@ -1,8 +1,7 @@
 import time
 
 from spade.behaviour import CyclicBehaviour
-
-from utils.messaging import parse_content, build_message
+from utils.messaging import build_message, parse_content
 
 
 def _clamp(v: int, lo: int, hi: int) -> int:
@@ -10,12 +9,12 @@ def _clamp(v: int, lo: int, hi: int) -> int:
 
 
 class ReceiveBehaviour(CyclicBehaviour):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._last_regulate_at: dict[str, float] = {}
         self._last_sent_aggr: dict[str, int] = {}
 
-    async def run(self):
+    async def run(self) -> None:
         msg = await self.receive(timeout=10)
         if not msg:
             return
@@ -33,21 +32,17 @@ class ReceiveBehaviour(CyclicBehaviour):
         elif conv == "alerts":
             await self.handle_external_alert(content)
 
-    async def handle_behavior_message(self, content: dict):
+    async def handle_behavior_message(self, content: dict) -> None:
         hen_id = content.get("hen_id")
         if not hen_id:
             return
 
         aggression = int(content.get("aggression", 0) or 0)
         hunger = int(content.get("hunger", 0) or 0)
-        aggression = _clamp(
-            aggression, -self.agent.max_abs_aggression, self.agent.max_abs_aggression
-        )
+        aggression = _clamp(aggression, -self.agent.max_abs_aggression, self.agent.max_abs_aggression)
 
         if abs(aggression) >= int(self.agent.aggression_threshold):
-            print(
-                f"[BEHAV] ALARM: aggression={aggression}, hunger={hunger}, hen_id={hen_id}"
-            )
+            print(f"[BEHAV] ALARM: aggression={aggression}, hunger={hunger}, hen_id={hen_id}")
 
             await self.raise_critical_event(
                 event_type="aggression_alert",
@@ -58,13 +53,9 @@ class ReceiveBehaviour(CyclicBehaviour):
                     "threshold": self.agent.aggression_threshold,
                 },
             )
-        await self._maybe_send_aggression_update(
-            hen_id=hen_id, aggression=aggression, hunger=hunger
-        )
+        await self._maybe_send_aggression_update(hen_id=hen_id, aggression=aggression, hunger=hunger)
 
-    async def _maybe_send_aggression_update(
-        self, hen_id: str, aggression: int, hunger: int
-    ):
+    async def _maybe_send_aggression_update(self, hen_id: str, aggression: int, hunger: int) -> None:
         now = time.monotonic()
         last_t = float(self._last_regulate_at.get(hen_id, 0.0))
 
@@ -90,16 +81,14 @@ class ReceiveBehaviour(CyclicBehaviour):
             hunger=hunger,
         )
 
-    async def handle_external_alert(self, content: dict):
-        event_type = (
-            content.get("event_type") or content.get("type") or "external_alert"
-        )
+    async def handle_external_alert(self, content: dict) -> None:
+        event_type = content.get("event_type") or content.get("type") or "external_alert"
         payload = content.get("payload", {}) or {}
 
         print(f"[ALARM] Alert z innego agenta: {event_type}, {payload}")
         await self.raise_critical_event(event_type, payload)
 
-    async def raise_critical_event(self, event_type: str, payload: dict):
+    async def raise_critical_event(self, event_type: str, payload: dict) -> None:
         msg_ui = build_message(
             to=self.agent.ui_jid,
             performative="inform",
@@ -130,9 +119,7 @@ class ReceiveBehaviour(CyclicBehaviour):
         )
         await self.send(msg_log)
 
-    async def send_aggression_update_to_lighting(
-        self, reason: str, hen_id: str, aggression: int, hunger: int
-    ):
+    async def send_aggression_update_to_lighting(self, reason: str, hen_id: str, aggression: int, hunger: int) -> None:
         msg = build_message(
             to=self.agent.lighting_jid,
             performative="request",

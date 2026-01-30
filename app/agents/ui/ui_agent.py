@@ -1,11 +1,10 @@
-from spade.agent import Agent
-
 from agents.ui.ui_agent_behaviour import ReceiveBehaviour
 from agents.ui.ui_ws import UiWebSocketHub, start_ws_server
+from spade.agent import Agent
 
 
 class UIAgent(Agent):
-    async def setup(self):
+    async def setup(self) -> None:
         print("[UI] Agent uruchomiony.")
 
         self.hens: dict[str, dict] = {}

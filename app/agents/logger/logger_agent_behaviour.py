@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from typing import Any
 
 from spade.behaviour import CyclicBehaviour
-
 from utils.messaging import parse_content
 
 
@@ -11,7 +10,7 @@ def _utc_now_iso() -> str:
 
 
 class ReceiveBehaviour(CyclicBehaviour):
-    async def run(self):
+    async def run(self) -> None:
         msg = await self.receive(timeout=10)
         if not msg:
             return
@@ -41,9 +40,7 @@ class ReceiveBehaviour(CyclicBehaviour):
         self.agent.repo.log(event_type, log_record)
         print(f"[LOGGER] {event_type}: {log_record}")
 
-    def _normalize_event(
-        self, data: Any, conversation: str, sender: str
-    ) -> tuple[str, dict, str | None]:
+    def _normalize_event(self, data: Any, conversation: str, sender: str) -> tuple[str, dict, str | None]:
         event_type: str | None = None
         payload: Any = None
         source: str | None = None

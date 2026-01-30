@@ -1,10 +1,10 @@
 import os
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
+from agents.ui.ui_ws import UiWebSocketHub
 from spade.behaviour import CyclicBehaviour
-
 from utils.messaging import parse_content
 
 
@@ -16,11 +16,11 @@ def _now_monotonic() -> float:
     return time.monotonic()
 
 
-def _clear_console():
+def _clear_console() -> None:
     os.system("cls" if os.name == "nt" else "clear")
 
 
-def _stable_hash(obj) -> str:
+def _stable_hash(obj: Any) -> str:
     try:
         if obj is None:
             return "none"
@@ -47,12 +47,12 @@ class ReceiveBehaviour(CyclicBehaviour):
     def __init__(
         self,
         *,
-        ws_hub=None,
+        ws_hub: UiWebSocketHub | None = None,
         render_interval_sec: float = 1.0,
         clear_screen: bool = False,
         also_print_console: bool = False,
         dedup_window_sec: float = 0.0,
-    ):
+    ) -> None:
         super().__init__()
         self.ws_hub = ws_hub
         self.render_interval_sec = float(render_interval_sec)
@@ -65,7 +65,7 @@ class ReceiveBehaviour(CyclicBehaviour):
         self._dedup_window_sec = float(dedup_window_sec)
         self._dedup: dict[str, float] = {}
 
-    async def run(self):
+    async def run(self) -> None:
         if not hasattr(self.agent, "hens"):
             self.agent.hens = {}
         if not hasattr(self.agent, "feed"):
@@ -122,8 +122,8 @@ class ReceiveBehaviour(CyclicBehaviour):
         sender: str,
         event_type: str,
         payload: dict | Any,
-        dedup_key: Optional[str] = None,
-        ts: Optional[str] = None,
+        dedup_key: str | None = None,
+        ts: str | None = None,
     ) -> None:
         if not self.ws_hub:
             return
@@ -153,7 +153,7 @@ class ReceiveBehaviour(CyclicBehaviour):
         except Exception:
             return
 
-    def _make_snapshot(self) -> Dict[str, Any]:
+    def _make_snapshot(self) -> dict[str, Any]:
         return {
             "type": "ui_snapshot",
             "ts": _utc_now_iso(),
@@ -173,7 +173,7 @@ class ReceiveBehaviour(CyclicBehaviour):
         except Exception:
             return
 
-    async def _maybe_render_snapshot(self):
+    async def _maybe_render_snapshot(self) -> None:
         if not self._dirty:
             return
         now = _now_monotonic()
@@ -211,17 +211,11 @@ class ReceiveBehaviour(CyclicBehaviour):
         )
 
         if event == "feed_dispensed":
-            return await self.handle_update_state(
-                sender, {"type": "feed_dispensed", "payload": payload}
-            )
+            return await self.handle_update_state(sender, {"type": "feed_dispensed", "payload": payload})
         if event == "light_change":
-            return await self.handle_update_state(
-                sender, {"type": "light_state_update", "payload": payload}
-            )
+            return await self.handle_update_state(sender, {"type": "light_state_update", "payload": payload})
         if event in ("aggression_alert", "critical_event"):
-            return await self.handle_update_state(
-                sender, {"type": "critical_event", "payload": payload}
-            )
+            return await self.handle_update_state(sender, {"type": "critical_event", "payload": payload})
 
         return False
 
@@ -286,10 +280,7 @@ class ReceiveBehaviour(CyclicBehaviour):
                 self.agent.light = entry
                 changed = old != entry
             else:
-                if (
-                    not hasattr(self.agent, "lights_by_hen")
-                    or self.agent.lights_by_hen is None
-                ):
+                if not hasattr(self.agent, "lights_by_hen") or self.agent.lights_by_hen is None:
                     self.agent.lights_by_hen = {}
                 old = self.agent.lights_by_hen.get(hen_id)
                 self.agent.lights_by_hen[hen_id] = entry
@@ -361,7 +352,7 @@ class ReceiveBehaviour(CyclicBehaviour):
 
         return changed
 
-    def render(self):
+    def render(self) -> None:
         if self.clear_screen:
             _clear_console()
 

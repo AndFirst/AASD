@@ -1,17 +1,14 @@
 import asyncio
 
-from spade.agent import Agent
-
 from agents.behavior_and_alarm.behavior_and_alarm_agent_behaviour import (
     ReceiveBehaviour,
 )
-from utils.config_loader import load_config, get_agent_credentials
+from spade.agent import Agent
+from utils.config_loader import get_agent_credentials, load_config
 
 
 class BehaviorAndAlarmAgent(Agent):
-    def __init__(
-        self, jid: str, password: str, port: int = 5222, verify_security: bool = False
-    ):
+    def __init__(self, jid: str, password: str, port: int = 5222, verify_security: bool = False) -> None:
         super().__init__(jid, password, port, verify_security)
         self.max_abs_aggression: int = 10
 
@@ -26,24 +23,16 @@ class BehaviorAndAlarmAgent(Agent):
         self.logger_jid: str | None = None
         self.lighting_jid: str | None = None
 
-    async def setup(self):
+    async def setup(self) -> None:
         print("[BEHAV] Agent uruchomiony.")
         cfg = load_config()
 
         beh = cfg.get("behavior", {}) or {}
 
-        self.aggression_threshold = int(
-            beh.get("aggression_threshold", self.aggression_threshold)
-        )
-        self.aggression_target_min = int(
-            beh.get("aggression_target_min", self.aggression_target_min)
-        )
-        self.aggression_target_max = int(
-            beh.get("aggression_target_max", self.aggression_target_max)
-        )
-        self.regulate_min_interval_sec = float(
-            beh.get("regulate_min_interval_sec", self.regulate_min_interval_sec)
-        )
+        self.aggression_threshold = int(beh.get("aggression_threshold", self.aggression_threshold))
+        self.aggression_target_min = int(beh.get("aggression_target_min", self.aggression_target_min))
+        self.aggression_target_max = int(beh.get("aggression_target_max", self.aggression_target_max))
+        self.regulate_min_interval_sec = float(beh.get("regulate_min_interval_sec", self.regulate_min_interval_sec))
 
         self.ui_jid = cfg["agents"]["ui"]["jid"]
         self.logger_jid = cfg["agents"]["logger"]["jid"]
@@ -52,13 +41,11 @@ class BehaviorAndAlarmAgent(Agent):
         self.add_behaviour(ReceiveBehaviour())
 
 
-async def main():
+async def main() -> None:
     cfg = load_config()
     jid, password = get_agent_credentials("behavior_alarm", cfg)
 
-    agent = BehaviorAndAlarmAgent(
-        jid, password, verify_security=cfg["xmpp"]["verify_security"]
-    )
+    agent = BehaviorAndAlarmAgent(jid, password, verify_security=cfg["xmpp"]["verify_security"])
     await agent.start(auto_register=False)
     print("BehaviorAndAlarmAgent jest online. CTRL+C aby zakończyć.")
 
