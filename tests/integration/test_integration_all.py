@@ -1,5 +1,3 @@
-# tests/integration/test_integration_all.py
-import json
 import pathlib
 import sys
 
@@ -9,26 +7,20 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 APP_DIR = REPO_ROOT / "app"
 sys.path.insert(0, str(APP_DIR))
 
-import app.agents.behavior_and_alarm.behavior_and_alarm_agent_behaviour as alarm_mod  # noqa: E402
-import app.agents.feed_control.behaviour as feed_behaviour_mod  # noqa: E402
-import app.agents.lighting.lighting_agent_behaviour as lighting_mod  # noqa: E402
-from app.agents.behavior_and_alarm.behavior_and_alarm_agent_behaviour import (  # noqa: E402
+
+import app.agents.feed_control.behaviour as feed_behaviour_mod
+from app.agents.behavior_and_alarm.behavior_and_alarm_agent_behaviour import (
     ReceiveBehaviour as AlarmReceiveBehaviour,
 )
-from app.agents.feed_control.behaviour import (  # noqa: E402
-    ReceiveBehaviour as FeedReceiveBehaviour,
-)
-from app.agents.hen_simulator.behaviour import (  # noqa: E402
+from app.agents.feed_control.behaviour import ReceiveBehaviour as FeedReceiveBehaviour
+from app.agents.hen_simulator.behaviour import (
     ReceiveFeedingBehaviour,
     ReceiveLightingBehaviour,
-    SimulateBehaviour,
 )
-from app.agents.lighting.lighting_agent_behaviour import (  # noqa: E402
-    LightningBehaviour,
-)
-from app.models.environment_state import FeedState  # noqa: E402
-from app.models.hen_state import HenState  # noqa: E402
-from app.utils.messaging import build_message, parse_content  # noqa: E402
+from app.agents.lighting.lighting_agent_behaviour import LightningBehaviour
+from app.models.environment_state import FeedState
+from app.models.hen_state import HenState
+from app.utils.messaging import parse_content
 
 
 class DummyJID:
